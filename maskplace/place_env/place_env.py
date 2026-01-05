@@ -8,6 +8,7 @@ from place_db import PlaceDB
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import time
+import copy
 
 class PlaceEnv(gym.Env):
 
@@ -297,5 +298,40 @@ class PlaceEnv(gym.Env):
         mask[self.grid - next_x + 1:,:] = 1
         mask[:, self.grid - next_y + 1:] = 1
         return mask
+
+
+    def test_max_rudy(self, action):
+        x = round(action // self.grid)
+        y = round(action % self.grid)
+        node_name = self.placedb.node_id_to_name[self.num_macro_placed]
+        rudy_tmp = copy.deepcopy(self.rudy)
+        for net_name in self.placedb.node_to_net_dict[node_name]:
+            self.net_placed_set[net_name].add(node_name)
+            pin_x = round((x * self.ratio + self.placedb.node_info[node_name]['x']/2 + \
+                    self.placedb.net_info[net_name]["nodes"][node_name]["x_offset"])/self.ratio)
+            pin_y = round((y * self.ratio + self.placedb.node_info[node_name]['y']/2 + \
+                self.placedb.net_info[net_name]["nodes"][node_name]["y_offset"])/self.ratio)
+            if net_name in self.net_min_max_ord:
+                start_x = self.net_min_max_ord[net_name]['min_x']
+                end_x = self.net_min_max_ord[net_name]['max_x']
+                start_y = self.net_min_max_ord[net_name]['min_y']
+                end_y = self.net_min_max_ord[net_name]['max_y']
+                delta_x = end_x - start_x
+                delta_y = end_y - start_y
+                if delta_x > 0 or delta_y > 0:
+                    rudy_tmp[start_x : end_x +1, start_y: end_y +1] -= 1/(delta_x+1) + 1/(delta_y+1) 
+                if pin_x > end_x:
+                    end_x = pin_x
+                elif pin_x < start_x:
+                    start_x = pin_x
+                if pin_y > end_y:
+                    end_y = pin_y
+                elif pin_y < start_y:
+                    start_y = pin_y
+                delta_x = end_x - start_x
+                delta_y = end_y - start_y
+                rudy_tmp[start_x : end_x +1, start_y: end_y +1] += 1/(delta_x+1) + 1/(delta_y+1) 
+        return rudy_tmp.max()
+
 
     
